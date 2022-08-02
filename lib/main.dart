@@ -9,71 +9,15 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  final appTitle = 'example';
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: appTitle,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: CounterPage(title: appTitle),
+      home: CounterPage(title: 'example'),
     );
   }
-}
-
-abstract class View<T extends ViewModel> extends StatefulWidget {
-  View({
-    required this.viewModelBuilder,
-    super.key,
-  });
-  final T Function() viewModelBuilder;
-  final _viewModelHolder = _ViewModelHolder<T>();
-  T get viewModel => _viewModelHolder.viewModel!;
-
-  Widget build(BuildContext context);
-
-  @nonVirtual
-  @override
-  State<View<T>> createState() => _ViewState<T>();
-}
-
-class _ViewState<T extends ViewModel> extends State<View<T>> {
-  late T _viewModel;
-
-  @override
-  void initState() {
-    super.initState();
-    _initViewModel();
-    _viewModel.initState();
-  }
-
-  @override
-  void dispose() {
-    _viewModel.dispose();
-    super.dispose();
-  }
-
-  void _initViewModel() {
-    _viewModel = widget.viewModelBuilder();
-    _viewModel.addListener(() => setState(() {}));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    widget._viewModelHolder.viewModel = _viewModel;
-    return widget.build(context);
-  }
-}
-
-class _ViewModelHolder<T> {
-  T? viewModel;
-}
-
-abstract class ViewModel extends ChangeNotifier {
-  @protected
-  void initState() {}
 }
 
 class IncrementButton extends View<IncrementButtonViewModel> {
@@ -96,7 +40,13 @@ class IncrementButton extends View<IncrementButtonViewModel> {
   }
 }
 
-enum IncrementType { number, letter }
+enum FabLabel {
+  number('+1'),
+  letter('+a');
+  const FabLabel(this.value);
+  final String value;
+  FabLabel get nextLabel => value == number.value ? letter : number;
+}
 
 class IncrementButtonViewModel extends ViewModel {
   IncrementButtonViewModel({
@@ -104,17 +54,22 @@ class IncrementButtonViewModel extends ViewModel {
     required this.incrementLetter,
   });
 
-  IncrementType _currentType = IncrementType.number;
   final void Function() incrementNumber;
   final void Function() incrementLetter;
+  final currentFabLabel = ValueNotifier<FabLabel>(FabLabel.number);
 
-  void incrementCounter() {
-    _currentType == IncrementType.number ? incrementNumber() : incrementLetter();
-    _currentType = _currentType == IncrementType.number ? IncrementType.letter : IncrementType.number;
-    notifyListeners();
+  @override
+  void initState() {
+    super.initState();
+    currentFabLabel.addListener(buildView);
   }
 
-  String get label => <String>['+1', '+a'][_currentType.index];
+  void incrementCounter() {
+    currentFabLabel.value == FabLabel.number ? incrementNumber() : incrementLetter();
+    currentFabLabel.value = currentFabLabel.value.nextLabel;
+  }
+
+  String get label => currentFabLabel.value.value;
 }
 
 class CounterPage extends View<CounterPageViewModel> {
@@ -141,12 +96,12 @@ class CounterPage extends View<CounterPageViewModel> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Text(
-                  viewModel.letterCounter,
-                  style: TextStyle(fontSize: 64, color: viewModel.color),
+                  viewModel.letterCounter.value,
+                  style: TextStyle(fontSize: 64, color: viewModel.color.value),
                 ),
                 Text(
-                  '${viewModel.numberCounter}',
-                  style: TextStyle(fontSize: 64, color: viewModel.color),
+                  viewModel.numberCounter.value.toString(),
+                  style: TextStyle(fontSize: 64, color: viewModel.color.value),
                 ),
               ],
             ),
@@ -168,16 +123,17 @@ class ColorService {
 }
 
 class CounterPageViewModel extends ViewModel {
-  Color _color = const Color.fromRGBO(0, 0, 0, 1.0);
-  Color get color => _color;
-  int _numberCounter = 0;
-  int get numberCounter => _numberCounter;
-  String _letterCounter = 'a';
-  String get letterCounter => _letterCounter;
+  final color = ValueNotifier<Color>(const Color.fromRGBO(0, 0, 0, 1.0));
+  final numberCounter = ValueNotifier<int>(0);
+  final letterCounter = ValueNotifier<String>('a');
 
   @override
   void initState() {
-    _streamSubscription = ColorService.currentColor.listen(setColor);
+    super.initState();
+    numberCounter.addListener(buildView);
+    letterCounter.addListener(buildView);
+    color.addListener(buildView);
+    _streamSubscription = ColorService.currentColor.listen((newColor) => color.value = newColor);
   }
 
   @override
@@ -188,18 +144,69 @@ class CounterPageViewModel extends ViewModel {
 
   late final StreamSubscription<Color> _streamSubscription;
 
-  void setColor(Color newColor) {
-    _color = newColor;
-    notifyListeners();
-  }
-
   void incrementNumberCounter() {
-    _numberCounter = _numberCounter == 9 ? 0 : _numberCounter + 1;
-    notifyListeners();
+    numberCounter.value = numberCounter.value == 9 ? 0 : numberCounter.value + 1;
   }
 
   void incrementLetterCounter() {
-    _letterCounter = _letterCounter == 'z' ? 'a' : String.fromCharCode(_letterCounter.codeUnits[0] + 1);
-    notifyListeners();
+    letterCounter.value = letterCounter.value == 'z' ? 'a' : String.fromCharCode(letterCounter.value.codeUnits[0] + 1);
   }
+}
+
+abstract class View<T extends ViewModel> extends StatefulWidget {
+  View({
+    required this.viewModelBuilder,
+    super.key,
+  });
+  final T Function() viewModelBuilder;
+  final _viewModelInstance = _ViewModelInstance<T>();
+  T get viewModel => _viewModelInstance.value!;
+
+  Widget build(BuildContext context);
+
+  @nonVirtual
+  @override
+  State<View<T>> createState() => _ViewState<T>();
+}
+
+class _ViewState<T extends ViewModel> extends State<View<T>> {
+  late T _viewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _initViewModel();
+    _viewModel.initState();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
+  }
+
+  void _initViewModel() {
+    _viewModel = widget.viewModelBuilder();
+    _viewModel.buildView = () => setState(() {});
+    _viewModel.addListener(_viewModel.buildView);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    widget._viewModelInstance.value = _viewModel;
+    return widget.build(context);
+  }
+}
+
+class _ViewModelInstance<T> {
+  T? value;
+}
+
+abstract class ViewModel extends ChangeNotifier {
+  @protected
+  late void Function() buildView;
+
+  @protected
+  @mustCallSuper
+  void initState() {}
 }
