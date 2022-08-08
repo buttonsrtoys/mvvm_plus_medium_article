@@ -43,6 +43,7 @@ class IncrementButton extends View<IncrementButtonViewModel> {
 enum FabLabel {
   number('+1'),
   letter('+a');
+
   const FabLabel(this.value);
   final String value;
   FabLabel get nextLabel => value == number.value ? letter : number;
@@ -56,20 +57,20 @@ class IncrementButtonViewModel extends ViewModel {
 
   final void Function() incrementNumber;
   final void Function() incrementLetter;
-  final currentFabLabel = ValueNotifier<FabLabel>(FabLabel.number);
+  final _currentFabLabel = ValueNotifier<FabLabel>(FabLabel.number);
 
   @override
   void initState() {
     super.initState();
-    currentFabLabel.addListener(buildView);
+    _currentFabLabel.addListener(buildView);
   }
 
   void incrementCounter() {
-    currentFabLabel.value == FabLabel.number ? incrementNumber() : incrementLetter();
-    currentFabLabel.value = currentFabLabel.value.nextLabel;
+    _currentFabLabel.value == FabLabel.number ? incrementNumber() : incrementLetter();
+    _currentFabLabel.value = _currentFabLabel.value.nextLabel;
   }
 
-  String get label => currentFabLabel.value.value;
+  String get label => _currentFabLabel.value.value;
 }
 
 class CounterPage extends View<CounterPageViewModel> {
@@ -88,25 +89,23 @@ class CounterPage extends View<CounterPageViewModel> {
       appBar: AppBar(
         title: Text(title),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(
-                  viewModel.letterCounter.value,
-                  style: TextStyle(fontSize: 64, color: viewModel.color.value),
-                ),
-                Text(
-                  viewModel.numberCounter.value.toString(),
-                  style: TextStyle(fontSize: 64, color: viewModel.color.value),
-                ),
-              ],
-            ),
-          ],
-        ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text(
+                viewModel.letterCounter.value,
+                style: TextStyle(fontSize: 64, color: viewModel.color.value),
+              ),
+              Text(
+                viewModel.numberCounter.value.toString(),
+                style: TextStyle(fontSize: 64, color: viewModel.color.value),
+              ),
+            ],
+          ),
+        ],
       ),
       floatingActionButton: IncrementButton(
         onIncrementNumber: () => viewModel.incrementNumberCounter(),
