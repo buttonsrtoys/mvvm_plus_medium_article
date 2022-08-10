@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 
 class MyWidget extends StatefulWidget {
   const MyWidget({super.key});
@@ -13,7 +12,7 @@ class _MyWidgetState extends State<MyWidget> {
   Widget build(BuildContext context) {
     return OutlinedButton(
       onPressed: incrementCounter,
-      child: Text('${viewModel.counter}'),
+      child: Text('_counter'),
     );
   }
 
